@@ -3,6 +3,7 @@ import { h } from 'preact';
 export default function(matrix) {
   const [ hamiltonianCycle, rfLog ] = robertsFlores(matrix);
   const reorderedMatrix = reorderVertices(matrix, hamiltonianCycle);
+  const psiLog = psiSet(reorderedMatrix);
 
   return (
     <div>
@@ -14,6 +15,9 @@ export default function(matrix) {
           row.map((cell, coli) => (<td>{coli > rowi ? (<strong><u>{cell}</u></strong>) : cell}</td>))
         }</tr>))}
       </table>
+      <h2>Построение графа пересечений $G'$</h2>
+      <h2>Построение семейства $\psi_G$</h2>
+      <p class="multiline">{psiLog.join('\n')}</p>
     </div>
   );
 }
@@ -98,4 +102,81 @@ function reorderVertices(matrix, hamiltonianCycle) {
   }
 
   return newMatrix;
+}
+
+function psiSet(matrix) {
+  matrix = [
+      [1, 1, 1, 0, 0, 0, 0, 0],
+      [1, 1, 0, 1, 0, 0, 1, 1],
+      [1, 0, 1, 1, 1, 1, 0, 0],
+      [0, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 1, 0, 1, 0, 1, 1],
+      [0, 0, 1, 0, 0, 1, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 0],
+      [0, 1, 0, 0, 1, 0, 0, 1]
+  ];
+  const log = [];
+  const result = [];
+  matrix.forEach((row, i) => {
+    const js = row.reduce((a, el, j) => (el == 0 && j > i) ? a.concat(j) : a, []);
+
+    if (i === matrix.length - 1) {
+      log.push(`Семейство максимальных внутренне устойчивых множеств $\\psi_G$ построено. Это:`);
+      result.forEach((phi, phiIndex) => {
+        log.push(`$\\psi_{${phiIndex + 1}} = \\{${phi.map((i) => i + 1).join(",")}\\}$`);
+      });
+    }
+    else if (js.length === 0) {
+      log.push(`$\\psi_${result.length + 1} = \\{${i + 1}\\}$`);
+      result.push([i]);
+    }
+    else recurseJPrimes(matrix, js, i, matrix[i], [i], result, log);
+  });
+
+  console.log(result);
+  return log;
+}
+
+function recurseJPrimes(matrix, jPrimes, j, disj, psi, result, log) {
+  const disp = (vals) => vals.map((v) => v + 1).join("");
+  const commaDisp = (vals) => vals.map((v) => v + 1).join(",");
+  if (allTrue(disj)) {
+    result.push(Array.from(psi));
+    log.push(`Построено $\\psi_{${result.length}} = \\{${commaDisp(psi)}\\}$\n`);
+    return;
+  }
+
+  jPrimes.forEach((k) => {
+    if (k > j) {
+      const row = matrix[k];
+      psi.push(k);
+      log.push(
+        `Записываем дизъюнкцию $M_{${disp(psi)}} = ` + 
+        ((psi.length - 1  === 1) ? `r_{${psi[0] + 1}}` : `M_{${disp(psi.slice(0, psi.length - 1))}}`) +
+        `\\lor r_{${k + 1}} = ${disj.join("")} \\lor ${row.join("")} = ${or(disj, row).join("")}$`);
+      const newDisj = or(disj, row);
+      const newJPrimes = newDisj.reduce((a, el, j) => (el == 0 && j >= k) ? a.concat(j) : a, []);
+      log.push(`В строке $M_{${disp(psi)}}$ ` +
+        ((newJPrimes.length > 1)
+        ? `находим номера нулевых элементов, составляем список $J' = \\{${commaDisp(newJPrimes)}\\}$.`
+        : (newJPrimes.length === 1)
+          ? `находим $m_{${newJPrimes[0] + 1}} = 0$.`
+          : allTrue(newDisj) 
+            ? `все 1.`
+          : `остались незакрытые 0.`));
+      recurseJPrimes(matrix, newJPrimes, k, newDisj, psi, result, log);
+      remove(psi, k);
+    }
+  });
+}
+
+function allTrue(bitarray) { return bitarray.every((e) => e === 1); }
+
+function or(as, bs) { return zip(as, bs).map(([a, b]) => a | b); }
+
+function zip(as, bs) { return as.map((a, i) => [a, bs[i]]); }
+
+function remove(array, el) {
+  const index = array.indexOf(el);
+  (index !== -1) && array.splice(index, 1);
 }
