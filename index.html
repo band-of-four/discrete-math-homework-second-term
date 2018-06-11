@@ -8,6 +8,17 @@
   <link href="https://fonts.googleapis.com/css?family=Merriweather:400,400i,700&amp;subset=cyrillic" rel="stylesheet"> 
   <link rel="stylesheet" href="dist/app.css">
   <script src="dist/app.js"></script>
+  <!-- Import MathJax -->
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      extensions: ["tex2jax.js"], jax: ["input/TeX", "output/HTML-CSS"],
+      tex2jax: { inlineMath: [['$','$']], displayMath:  [['$$','$$']], processEscapes: true },
+      "HTML-CSS": { availableFonts: ["TeX"] },
+      TeX: { extensions: ["AMSmath.js", "AMSsymbols.js"] },
+    });
+  </script>
+  <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"></script>
+  <!-- End of MathJax import -->
 </head>
 <body>
 </body>

@@ -3,7 +3,7 @@ import { Router } from 'preact-router';
 import { Link } from 'preact-router/match';
 import createHashHistory from 'history/createHashHistory';
 
-import HW4 from './hw4';
+import { HW4 } from './hw4-ui';
 
 function App(props) {
   return (
