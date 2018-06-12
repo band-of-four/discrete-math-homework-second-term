@@ -3,21 +3,31 @@ import { h } from 'preact';
 export default function(matrix) {
   const [ hamiltonianCycle, rfLog ] = robertsFlores(matrix);
   const reorderedMatrix = reorderVertices(matrix, hamiltonianCycle);
-  const psiLog = psiSet(reorderedMatrix);
+  const [ intersections, edges, isLog ] = intersectionMatrix(reorderedMatrix);
+
+  const [ psis, psiLog ] = psiSet(intersections, edges);
+  const [ anlMatrix, anlLog ] = analyzePsiSet(psis);
+
+  const displayLog = (log) => (<p class="multiline">{log.join('\n')}</p>);
+
+  const displayMatrix = (matrix) => (<table class="matrix-display">
+    {matrix.map((row) => (<tr>{row.map((cell) => (<td>{cell}</td>))}</tr>))}
+  </table>);
 
   return (
     <div>
       <h2>Нахождение гамильтонова цикла</h2>
-      <p class="multiline">{rfLog.join('\n')}</p>
+      {displayLog(rfLog)}
       <h2>Матрица смежности с перенумерованными вершинами</h2>
-      <table>
-        {reorderedMatrix.map((row, rowi) => (<tr>{
-          row.map((cell, coli) => (<td>{coli > rowi ? (<strong><u>{cell}</u></strong>) : cell}</td>))
-        }</tr>))}
-      </table>
+      {displayMatrix(reorderedMatrix)}
       <h2>Построение графа пересечений $G'$</h2>
+      {displayLog(isLog)}
+      {displayMatrix(intersections)}
       <h2>Построение семейства $\psi_G$</h2>
-      <p class="multiline">{psiLog.join('\n')}</p>
+      {displayLog(psiLog)}
+      <h2>Выделение из $G'$ максимального двудольного подграфа $H'$</h2>
+      {displayLog(anlLog)}
+      {displayMatrix(anlMatrix)}
     </div>
   );
 }
@@ -104,45 +114,78 @@ function reorderVertices(matrix, hamiltonianCycle) {
   return newMatrix;
 }
 
-function psiSet(matrix) {
-  matrix = [
-      [1, 1, 1, 0, 0, 0, 0, 0],
-      [1, 1, 0, 1, 0, 0, 1, 1],
-      [1, 0, 1, 1, 1, 1, 0, 0],
-      [0, 1, 1, 1, 0, 0, 0, 0],
-      [0, 0, 1, 0, 1, 0, 1, 1],
-      [0, 0, 1, 0, 0, 1, 1, 0],
-      [0, 1, 0, 0, 1, 1, 1, 0],
-      [0, 1, 0, 0, 1, 0, 0, 1]
-  ];
+function intersectionMatrix(matrix) {
+  const log = [];
+  const mrows = [];
+  const m = [];
+
+  matrix.forEach((row, i) => {
+    /* i + 2 because we need to skip the lower left triangle and the cycle */
+    const adjacent = findIndexes(row, 1).filter((j) => j >= i + 2).reverse();
+
+    adjacent.forEach((j) => {
+      const edges = [];  
+
+      matrix.slice(0, i).forEach((intersectRow, i1) => {
+        const adjacentIntersecting = findIndexes(intersectRow, 1).filter((j1) => j1 >= i + 1 && j1 < j);
+
+        adjacentIntersecting.forEach((j1) => {
+          edges.push([i1, j1]);
+
+          const i1j1Index = findIndexOrInsert(mrows, ([ri, rj]) => ri === i1 && rj === j1, [i1, j1]);
+          const ijIndex = findIndexOrInsert(mrows, ([ri, rj]) => ri === i && rj === j, [i, j]);
+  
+          assign2d(m, i1j1Index, ijIndex, 1);
+          assign2d(m, ijIndex, i1j1Index, 1);
+        });
+      });
+
+      if (edges.length > 0) {
+        log.push(`Определим $p_{${i + 1}${j + 1}}$, для чего в матрице $R$ выделим подматрицу $R_{${i + 1}${j + 1}}$.`);
+        log.push(`Ребро $(x_{${i + 1}}x_{${j + 1}})$ пересекается с $${edges.map(([i1, j1]) => `(x_{${i1 + 1}}x_{${j1 + 1}})`).join(",")}$`);
+      }
+    });
+  });
+  for (let i = 0; i < m.length; i++) {
+    for (let j = 0; j < m.length; j++) {
+      if (i === j) m[i][j] = 1;
+      if (typeof m[i][j] === 'undefined') m[i][j] = 0;
+    }
+  }
+  return [m, mrows.map(([i, j]) => [i + 1, j + 1]), log];
+}
+
+function psiSet(matrix, edges) {
   const log = [];
   const result = [];
+
   matrix.forEach((row, i) => {
     const js = row.reduce((a, el, j) => (el == 0 && j > i) ? a.concat(j) : a, []);
 
     if (i === matrix.length - 1) {
       log.push(`Семейство максимальных внутренне устойчивых множеств $\\psi_G$ построено. Это:`);
-      result.forEach((phi, phiIndex) => {
-        log.push(`$\\psi_{${phiIndex + 1}} = \\{${phi.map((i) => i + 1).join(",")}\\}$`);
+      result.forEach((psi, psiIndex) => {
+        log.push(`$\\psi_{${psiIndex + 1}} = \\{${psi.map((i) => `u_{${edges[i].join("")}}`)}\\}$`);
       });
     }
     else if (js.length === 0) {
       log.push(`$\\psi_${result.length + 1} = \\{${i + 1}\\}$`);
       result.push([i]);
     }
-    else recurseJPrimes(matrix, js, i, matrix[i], [i], result, log);
+    else recurseJPrimes(matrix, edges, js, i, matrix[i], [i], result, log);
   });
 
-  console.log(result);
-  return log;
+  return [result, log];
 }
 
-function recurseJPrimes(matrix, jPrimes, j, disj, psi, result, log) {
+function recurseJPrimes(matrix, edges, jPrimes, j, disj, psi, result, log) {
   const disp = (vals) => vals.map((v) => v + 1).join("");
   const commaDisp = (vals) => vals.map((v) => v + 1).join(",");
+  const psiDisp = (psi) => psi.map((i) => `u_{${edges[i].join("")}}`).join(",");
+
   if (allTrue(disj)) {
     result.push(Array.from(psi));
-    log.push(`Построено $\\psi_{${result.length}} = \\{${commaDisp(psi)}\\}$\n`);
+    log.push(`Построено $\\psi_{${result.length}} = \\{${psiDisp(psi)}\\}$\n`);
     return;
   }
 
@@ -164,13 +207,49 @@ function recurseJPrimes(matrix, jPrimes, j, disj, psi, result, log) {
           : allTrue(newDisj) 
             ? `все 1.`
           : `остались незакрытые 0.`));
-      recurseJPrimes(matrix, newJPrimes, k, newDisj, psi, result, log);
+      recurseJPrimes(matrix, edges, newJPrimes, k, newDisj, psi, result, log);
       remove(psi, k);
     }
   });
 }
 
+function analyzePsiSet(psiSet) {
+  const m = [];
+  const log = [];
+
+  log.push(`Для каждой пары множеств вычислим значение критерия ` +
+    `$\\alpha_{\\gamma\\beta} = |\\psi_\\gamma| + |\\psi_\\beta| - |\\psi_\\gamma \\cap \\psi_\\beta|$:`);
+
+  psiSet.forEach((psiG, i) => {
+    psiSet.forEach((psiB, j) => {
+      if (j < i + 1) return;
+
+      const intersection = psiG.filter((v) => psiB.includes(v));
+      const alpha = psiG.length + psiB.length - intersection.length;
+
+      assign2d(m, i, j, alpha);
+
+      log.push(`$\\alpha_{${i + 1}${j + 1}} = |\\psi_{${i + 1}}| + |\\psi_{${j + 1}}| - |\\psi_{${i + 1}} \\cap \\psi_{${j + 1}}| = ` +
+        `${psiG.length} + ${psiB.length} - ${intersection.length} = ${alpha}$`);
+    });
+  });
+
+  for (let i = 0; i < m.length; i++)
+    for (let j = 0; j < m.length; j++)
+      if (typeof m[i][j] === 'undefined') m[i][j] = '-';
+
+  return [m, log];
+}
+
 function allTrue(bitarray) { return bitarray.every((e) => e === 1); }
+
+function findIndexOrInsert(array, pred, val) {
+  const index = array.findIndex(pred);
+  if (index !== -1) return index;
+
+  array.push(val);
+  return array.length - 1;
+}
 
 function or(as, bs) { return zip(as, bs).map(([a, b]) => a | b); }
 
@@ -179,4 +258,9 @@ function zip(as, bs) { return as.map((a, i) => [a, bs[i]]); }
 function remove(array, el) {
   const index = array.indexOf(el);
   (index !== -1) && array.splice(index, 1);
+}
+
+function assign2d(matrix, i, j, val) {
+  if (typeof matrix[i] === 'undefined') matrix[i] = [];
+  matrix[i][j] = val;
 }

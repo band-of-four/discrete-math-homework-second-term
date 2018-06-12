@@ -80,3 +80,9 @@ body {
   white-space: pre-line;
   line-height: 1.5em;
 }
+
+.matrix-display {
+  & tr > td {
+    width: 1em;
+  }
+}
