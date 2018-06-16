@@ -4,9 +4,9 @@ export default function(matrix) {
   const [ hamiltonianCycle, rfLog ] = robertsFlores(matrix);
   const reorderedMatrix = reorderVertices(matrix, hamiltonianCycle);
   const [ intersections, edges, isLog ] = intersectionMatrix(reorderedMatrix);
+  const [ psiSet, psiLog ] = independentVertexSets(intersections, edges);
 
-  const [ psis, psiLog ] = psiSet(intersections, edges);
-  const [ anlMatrix, anlLog ] = analyzePsiSet(psis);
+  const [ anlMatrix, anlLog ] = analyzePsiSet(psiSet);
 
   const displayLog = (log) => (<p class="multiline">{log.join('\n')}</p>);
 
@@ -68,7 +68,7 @@ function robertsFlores(matrix) {
 
 function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
   const vertices = matrix.length;
-  const pathStr = () => `$S = \\{${Array.from(path).map((n) => `x_${n + 1}`)}\\}$`;
+  const pathStr = () => `$S = \\{${Array.from(path).map((n) => `x_{${n + 1}}`)}\\}$`;
 
   pathsTaken.add(path);
 
@@ -80,7 +80,7 @@ function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
     path.delete(v);
     const vNext = lastInSet(path);
     log.push(`Ребра $(x_${v + 1},x_1)$ нет, найдена гамильтонова цепь. ` +
-      `Прибегнем к возвращению: удалим из $S$ вершину $x_${v + 1}$, перейдем к $x_${vNext + 1}$. ${pathStr()}`);
+      `Прибегнем к возвращению: удалим из $S$ вершину $x_{${v + 1}}$, перейдем к $x_{${vNext + 1}}$. ${pathStr()}`);
     return robertsFloresStep(matrix, adjacent, v, vNext, path, pathsTaken, log);
   }
 
@@ -88,14 +88,14 @@ function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
     const vAdj = adjacent[v][i];
     if (vAdj !== vPrev && !path.has(vAdj) && !pathsTaken.has(setWith(path, vAdj))) {
       path.add(vAdj);
-      log.push(`Возможная вершина: $x_${vAdj + 1}$. ${pathStr()}`);
+      log.push(`Возможная вершина: $x_{${vAdj + 1}}$. ${pathStr()}`);
       return robertsFloresStep(matrix, adjacent, v, vAdj, path, pathsTaken, log);
     }
   }
 
   path.delete(v);
   const vNext = lastInSet(path);
-  log.push(`У ${v + 1} больше нет возможных вершин, удалим ее. Перейдем к ${vNext + 1}. ${pathStr()}`);
+  log.push(`У $x_{${v + 1}}$ больше нет возможных вершин, удалим ее. Перейдем к $x_{${vNext + 1}}$. ${pathStr()}`);
   return robertsFloresStep(matrix, adjacent, v, vNext, path, pathsTaken, log);
 }
 
@@ -115,6 +115,7 @@ function reorderVertices(matrix, hamiltonianCycle) {
 }
 
 function intersectionMatrix(matrix) {
+  const matrixCutoff = 15; /* limits the number of intersections to 15 */
   const log = [];
   const mrows = [];
   const m = [];
@@ -126,10 +127,14 @@ function intersectionMatrix(matrix) {
     adjacent.forEach((j) => {
       const edges = [];  
 
+      if (mrows.length === matrixCutoff) return;
+
       matrix.slice(0, i).forEach((intersectRow, i1) => {
         const adjacentIntersecting = findIndexes(intersectRow, 1).filter((j1) => j1 >= i + 1 && j1 < j);
 
         adjacentIntersecting.forEach((j1) => {
+          if (mrows.length === matrixCutoff) return;
+
           edges.push([i1, j1]);
 
           const i1j1Index = findIndexOrInsert(mrows, ([ri, rj]) => ri === i1 && rj === j1, [i1, j1]);
@@ -144,6 +149,8 @@ function intersectionMatrix(matrix) {
         log.push(`Определим $p_{${i + 1}${j + 1}}$, для чего в матрице $R$ выделим подматрицу $R_{${i + 1}${j + 1}}$.`);
         log.push(`Ребро $(x_{${i + 1}}x_{${j + 1}})$ пересекается с $${edges.map(([i1, j1]) => `(x_{${i1 + 1}}x_{${j1 + 1}})`).join(",")}$`);
       }
+      if (mrows.length === matrixCutoff)
+        log.push(`${matrixCutoff} пересечений графа найдено, закончим поиск.`);
     });
   });
   for (let i = 0; i < m.length; i++) {
@@ -155,59 +162,99 @@ function intersectionMatrix(matrix) {
   return [m, mrows.map(([i, j]) => [i + 1, j + 1]), log];
 }
 
-function psiSet(matrix, edges) {
+function independentVertexSets(matrix, edges) {
   const log = [];
   const result = [];
 
+  /* We don't have to iterate all rows: when constructing M_{ij} disjunctions:
+   * since i > j, there may be rows where no possible combination of disjunctions
+   * can be truthy. */
+  let iMax = 0;
+  let falseyIndex = 0;
+  for (let i = 0; i < matrix.length; i++) {
+    const rowDisj = matrix.slice(i, matrix.length).reduce((disj, r) => or(disj, r), Array(matrix.length).fill());
+    if (allTrue(rowDisj))
+      iMax = i;
+    else {
+      falseyIndex = rowDisj.findIndex((e) => e === 0);
+      break;
+    }
+  }
+
   matrix.forEach((row, i) => {
+    if (i > iMax) return;
+
     const js = row.reduce((a, el, j) => (el == 0 && j > i) ? a.concat(j) : a, []);
 
-    if (i === matrix.length - 1) {
-      log.push(`Семейство максимальных внутренне устойчивых множеств $\\psi_G$ построено. Это:`);
-      result.forEach((psi, psiIndex) => {
-        log.push(`$\\psi_{${psiIndex + 1}} = \\{${psi.map((i) => `u_{${edges[i].join("")}}`)}\\}$`);
-      });
-    }
-    else if (js.length === 0) {
+    if (js.length === 0) {
       log.push(`$\\psi_${result.length + 1} = \\{${i + 1}\\}$`);
       result.push([i]);
     }
-    else recurseJPrimes(matrix, edges, js, i, matrix[i], [i], result, log);
+    else {
+      log.push(`В ${i + 1} строке ищем первый нулевой элемент - $r_{${i + 1}\\ ${js[0] + 1}}$.`);
+      recurseJPrimes(matrix, edges, js, i, matrix[i], [i], result, log);
+      log.push('');
+    }
+  });
+
+  if (iMax < matrix.length - 1) {
+    log.push(`Из матрицы $R(G')$ видно, что строки с номерами j > ${iMax + 1} не смогут закрыть ноль в позиции ${falseyIndex + 1}.\n`);
+  }
+
+  log.push(`Семейство максимальных внутренне устойчивых множеств $\\psi_G$ построено. Это:`);
+  result.forEach((psi, psiIndex) => {
+    log.push(`$\\psi_{${psiIndex + 1}} = \\{${psi.map((i) => `u_{${edges[i].join("\\ ")}}`)}\\}$`);
   });
 
   return [result, log];
 }
 
 function recurseJPrimes(matrix, edges, jPrimes, j, disj, psi, result, log) {
-  const disp = (vals) => vals.map((v) => v + 1).join("");
+  const disp = (vals) => vals.map((v) => v + 1).join("\\ ");
   const commaDisp = (vals) => vals.map((v) => v + 1).join(",");
-  const psiDisp = (psi) => psi.map((i) => `u_{${edges[i].join("")}}`).join(",");
+  const psiDisp = (psi) => psi.map((i) => `u_{${edges[i].join("\\ ")}}`).join(",");
 
-  if (allTrue(disj)) {
-    result.push(Array.from(psi));
-    log.push(`Построено $\\psi_{${result.length}} = \\{${psiDisp(psi)}\\}$\n`);
-    return;
-  }
+  let shouldContinue = true;
 
   jPrimes.forEach((k) => {
-    if (k > j) {
+    if (k > j && shouldContinue) {
       const row = matrix[k];
       psi.push(k);
       log.push(
         `Записываем дизъюнкцию $M_{${disp(psi)}} = ` + 
         ((psi.length - 1  === 1) ? `r_{${psi[0] + 1}}` : `M_{${disp(psi.slice(0, psi.length - 1))}}`) +
         `\\lor r_{${k + 1}} = ${disj.join("")} \\lor ${row.join("")} = ${or(disj, row).join("")}$`);
+
       const newDisj = or(disj, row);
       const newJPrimes = newDisj.reduce((a, el, j) => (el == 0 && j >= k) ? a.concat(j) : a, []);
-      log.push(`В строке $M_{${disp(psi)}}$ ` +
-        ((newJPrimes.length > 1)
-        ? `находим номера нулевых элементов, составляем список $J' = \\{${commaDisp(newJPrimes)}\\}$.`
-        : (newJPrimes.length === 1)
-          ? `находим $m_{${newJPrimes[0] + 1}} = 0$.`
-          : allTrue(newDisj) 
-            ? `все 1.`
-          : `остались незакрытые 0.`));
-      recurseJPrimes(matrix, edges, newJPrimes, k, newDisj, psi, result, log);
+
+      /* Quick test to see if it's reasonable to follow the path of the new J' --
+       * make a disjunction of all remaining rows and see if it reaches all 1s,
+       * otherwise back off. */
+      const finalZeroes = findIndexes(newJPrimes.reduce((d, k) => or(d, matrix[k]), newDisj), 0);
+
+      if (allTrue(newDisj)) {
+        result.push(Array.from(psi));
+        log.push(`В строке $M_{${disp(psi)}}$ все 1. Построено $\\psi_{${result.length}} = \\{${psiDisp(psi)}\\}$`);
+      }
+      else if (finalZeroes.length === 0) {
+        log.push(`В строке $M_{${disp(psi)}}$ находим ` +
+          ((newJPrimes.length > 1)
+          ? `номера нулевых элементов, составляем список $J' = \\{${commaDisp(newJPrimes)}\\}$.`
+          : `$m_{${newJPrimes[0] + 1}} = 0$.`));
+        recurseJPrimes(matrix, edges, newJPrimes, k, newDisj, psi, result, log);
+      }
+      else if (k == matrix.length - 1) {
+        log.push(`В строке $M_{${disp(psi)}}$ остались незакрытые 0.`);
+      }
+      else {
+        log.push(`Можно увидеть, что элементами с номерами j > ${j + 1} не удастся закрыть 0 в ` +
+          ((finalZeroes.length === 1)
+           ? `${finalZeroes[0] + 1} позиции.`
+           : `позициях ${finalZeroes.map((k) => k + 1).join(', ')}.`));
+        shouldContinue = false;
+      }
+
       remove(psi, k);
     }
   });
