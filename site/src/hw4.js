@@ -166,7 +166,7 @@ function independentVertexSets(matrix, edges) {
   const log = [];
   const result = [];
 
-  /* We don't have to iterate all rows: when constructing M_{ij} disjunctions:
+  /* We don't have to iterate all rows: when constructing M_{ij} disjunctions,
    * since i > j, there may be rows where no possible combination of disjunctions
    * can be truthy. */
   let iMax = 0;
