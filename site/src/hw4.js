@@ -1,4 +1,8 @@
 import { h } from 'preact';
+import { rlog, rmatrix, rmatrixHeadered } from './r.js';
+import { DeepComparisonSet, lastEl, findIndexes, findIndexOrInsert,
+         setWithEl, allTrue, or, zip,
+         mutRemoveEl, mutAssign2d } from './enumerable.js';
 
 export default function(matrix) {
   const [ hamiltonianCycle, rfLog ] = robertsFlores(matrix);
@@ -10,23 +14,12 @@ export default function(matrix) {
 
   const edgeNames = edges.map(([i, j]) => `$p_{${i}\\ ${j}}$`);
 
-  const displayLog = (log) => (<p class="multiline">{log.join('\n')}</p>);
-
-  const displayMatrix = (matrix) => (<table class="matrix-display">
-    {matrix.map((row) => (<tr>{row.map((cell) => (<td>{cell}</td>))}</tr>))}
-  </table>);
-
-  const displayMatrixWithHeader = (matrix, headings) => (<table class="matrix-display">
-    <thead><th></th>{headings.map((heading) => (<th>{heading}</th>))}</thead>
-    {matrix.map((row, i) => (<tr><th>{headings[i]}</th>{row.map((cell) => (<td>{cell}</td>))}</tr>))}
-  </table>);
-
   return (
     <div>
       <h2>Нахождение гамильтонова цикла</h2>
-      {displayLog(rfLog)}
+      {rlog(rfLog)}
       <h2>Матрица смежности с перенумерованными вершинами</h2>
-      {displayMatrix(reorderedMatrix)}
+      {rmatrix(reorderedMatrix)}
       <table>
         <tr>
           <th>до перенумерации</th>
@@ -38,30 +31,16 @@ export default function(matrix) {
         </tr>
       </table>
       <h2>Построение графа пересечений $G'$</h2>
-      {displayLog(isLog)}
-      {displayMatrixWithHeader(intersections, edgeNames)}
+      {rlog(isLog)}
+      {rmatrixHeadered(intersections, edgeNames)}
       <h2>Построение семейства $\psi_G$</h2>
-      {displayLog(psiLog)}
+      {rlog(psiLog)}
       <h2>Выделение из $G'$ максимального двудольного подграфа $H'$</h2>
-      {displayLog(anlLog)}
-      {displayMatrix(anlMatrix)}
+      {rlog(anlLog)}
+      {rmatrix(anlMatrix)}
     </div>
   );
 }
-
-class DeepSet {
-  constructor() { this.set = new Set(); }
-
-  add(set) { this.set.add(JSON.stringify(Array.from(set))); }
-
-  has(set) { return this.set.has(JSON.stringify(Array.from(set))); }
-}
-
-function lastInSet(set) { return Array.from(set).pop(); }
-
-function findIndexes(array, val) { return array.reduce((a, el, i) => (el == val) ? a.concat(i) : a, []); }
-
-function setWith(set, el) { return new Set(set).add(el) }
 
 // https://stackoverflow.com/a/14986106/1726690
 function splitOverlapping(array, chunkSize) {
@@ -79,7 +58,7 @@ function robertsFlores(matrix) {
   const adjacent = Array(vertices).fill().map((_, i) => findIndexes(matrix[i], 1));
   log.push(`Включаем в $S$ вершину $x_1$. $S = \\{x_1\\}$`);
   
-  const [ pathSet, _ ] = robertsFloresStep(matrix, adjacent, 0, 0, new Set([0]), new DeepSet(), log);
+  const [ pathSet, _ ] = robertsFloresStep(matrix, adjacent, 0, 0, new Set([0]), new DeepComparisonSet(), log);
   return [Array.from(pathSet), log];
 }
 
@@ -95,7 +74,7 @@ function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
       return [path, log];
     }
     path.delete(v);
-    const vNext = lastInSet(path);
+    const vNext = lastEl(path);
     log.push(`Ребра $(x_${v + 1},x_1)$ нет, найдена гамильтонова цепь. ` +
       `Прибегнем к возвращению: удалим из $S$ вершину $x_{${v + 1}}$, перейдем к $x_{${vNext + 1}}$. ${pathStr()}`);
     return robertsFloresStep(matrix, adjacent, v, vNext, path, pathsTaken, log);
@@ -103,7 +82,7 @@ function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
 
   for (let i = 0; i < adjacent[v].length; i++) {
     const vAdj = adjacent[v][i];
-    if (vAdj !== vPrev && !path.has(vAdj) && !pathsTaken.has(setWith(path, vAdj))) {
+    if (vAdj !== vPrev && !path.has(vAdj) && !pathsTaken.has(setWithEl(path, vAdj))) {
       path.add(vAdj);
       log.push(`Возможная вершина: $x_{${vAdj + 1}}$. ${pathStr()}`);
       return robertsFloresStep(matrix, adjacent, v, vAdj, path, pathsTaken, log);
@@ -111,7 +90,7 @@ function robertsFloresStep(matrix, adjacent, vPrev, v, path, pathsTaken, log) {
   }
 
   path.delete(v);
-  const vNext = lastInSet(path);
+  const vNext = lastEl(path);
   log.push(`У $x_{${v + 1}}$ больше нет возможных вершин, удалим ее. Перейдем к $x_{${vNext + 1}}$. ${pathStr()}`);
   return robertsFloresStep(matrix, adjacent, v, vNext, path, pathsTaken, log);
 }
@@ -155,8 +134,8 @@ function intersectionMatrix(matrix) {
           const i1j1Index = findIndexOrInsert(mrows, ([ri, rj]) => ri === i1 && rj === j1, [i1, j1]);
           const ijIndex = findIndexOrInsert(mrows, ([ri, rj]) => ri === i && rj === j, [i, j]);
   
-          assign2d(m, i1j1Index, ijIndex, 1);
-          assign2d(m, ijIndex, i1j1Index, 1);
+          mutAssign2d(m, i1j1Index, ijIndex, 1);
+          mutAssign2d(m, ijIndex, i1j1Index, 1);
         });
       });
 
@@ -278,7 +257,7 @@ function recurseJPrimes(matrix, edges, jPrimes, j, disj, psi, result, log) {
         shouldContinue = false;
       }
 
-      remove(psi, k);
+      mutRemoveEl(psi, k);
     }
   });
 }
@@ -297,7 +276,7 @@ function analyzePsiSet(psiSet) {
       const intersection = psiG.filter((v) => psiB.includes(v));
       const alpha = psiG.length + psiB.length - intersection.length;
 
-      assign2d(m, i, j, alpha);
+      mutAssign2d(m, i, j, alpha);
 
       log.push(`$\\alpha_{${i + 1}${j + 1}} = |\\psi_{${i + 1}}| + |\\psi_{${j + 1}}| - |\\psi_{${i + 1}} \\cap \\psi_{${j + 1}}| = ` +
         `${psiG.length} + ${psiB.length} - ${intersection.length} = ${alpha}$`);
@@ -309,28 +288,4 @@ function analyzePsiSet(psiSet) {
       if (typeof m[i][j] === 'undefined') m[i][j] = '-';
 
   return [m, log];
-}
-
-function allTrue(bitarray) { return bitarray.every((e) => e === 1); }
-
-function findIndexOrInsert(array, pred, val) {
-  const index = array.findIndex(pred);
-  if (index !== -1) return index;
-
-  array.push(val);
-  return array.length - 1;
-}
-
-function or(as, bs) { return zip(as, bs).map(([a, b]) => a | b); }
-
-function zip(as, bs) { return as.map((a, i) => [a, bs[i]]); }
-
-function remove(array, el) {
-  const index = array.indexOf(el);
-  (index !== -1) && array.splice(index, 1);
-}
-
-function assign2d(matrix, i, j, val) {
-  if (typeof matrix[i] === 'undefined') matrix[i] = [];
-  matrix[i][j] = val;
 }
