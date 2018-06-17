@@ -115,7 +115,7 @@ function reorderVertices(matrix, hamiltonianCycle) {
 }
 
 function intersectionMatrix(matrix) {
-  const matrixCutoff = 15; /* limits the number of intersections to 15 */
+  const matrixCutoff = Math.min(matrix.length, 15); /* limits the number of intersections to 15 */
   const log = [];
   const mrows = [];
   const m = [];
@@ -133,8 +133,6 @@ function intersectionMatrix(matrix) {
         const adjacentIntersecting = findIndexes(intersectRow, 1).filter((j1) => j1 >= i + 1 && j1 < j);
 
         adjacentIntersecting.forEach((j1) => {
-          if (mrows.length === matrixCutoff) return;
-
           edges.push([i1, j1]);
 
           const i1j1Index = findIndexOrInsert(mrows, ([ri, rj]) => ri === i1 && rj === j1, [i1, j1]);
@@ -153,13 +151,20 @@ function intersectionMatrix(matrix) {
         log.push(`${matrixCutoff} пересечений графа найдено, закончим поиск.`);
     });
   });
-  for (let i = 0; i < m.length; i++) {
-    for (let j = 0; j < m.length; j++) {
-      if (i === j) m[i][j] = 1;
-      if (typeof m[i][j] === 'undefined') m[i][j] = 0;
+  
+  /* At this point, we may end up with a matrix that has > than matrixCutoff columns,
+   * so we rebuild it. */
+  const result = [];
+
+  for (let i = 0; i < matrixCutoff; i++) {
+    result[i] = [];
+    for (let j = 0; j < matrixCutoff; j++) {
+      if (i === j) result[i][j] = 1;
+      else if (typeof m[i][j] === 'undefined') result[i][j] = 0;
+      else result[i][j] = m[i][j];
     }
   }
-  return [m, mrows.map(([i, j]) => [i + 1, j + 1]), log];
+  return [result, mrows.slice(0, matrixCutoff).map(([i, j]) => [i + 1, j + 1]), log];
 }
 
 function independentVertexSets(matrix, edges) {
