@@ -86,7 +86,12 @@ body {
     width: 1em;
     text-align: center;
   }
+
   & tr > th {
     padding-right: 16px;
+  }
+
+  & thead > th {
+    padding-bottom: 12px;
   }
 }
