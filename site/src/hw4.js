@@ -132,7 +132,7 @@ function reorderVertices(matrix, hamiltonianCycle) {
 }
 
 function intersectionMatrix(matrix) {
-  const matrixCutoff = Math.min(matrix.length, 15); /* limits the number of intersections to 15 */
+  const matrixCutoff = 15; /* limits the number of intersections to 15 */
   const log = [];
   const mrows = [];
   const m = [];
@@ -160,7 +160,7 @@ function intersectionMatrix(matrix) {
         });
       });
 
-      if (edges.length > 0) {
+      if (edges.length > 0 && edges.length < matrixCutoff) {
         log.push(`Определим $p_{${i + 1}${j + 1}}$, для чего в матрице $R$ выделим подматрицу $R_{${i + 1}${j + 1}}$.`);
         log.push(`Ребро $(x_{${i + 1}}x_{${j + 1}})$ пересекается с $${edges.map(([i1, j1]) => `(x_{${i1 + 1}}x_{${j1 + 1}})`).join(",")}$`);
       }
@@ -173,14 +173,15 @@ function intersectionMatrix(matrix) {
    * so we rebuild it. */
   const result = [];
 
-  for (let i = 0; i < matrixCutoff; i++) {
+  for (let i = 0; i < Math.min(m.length, matrixCutoff); i++) {
     result[i] = [];
-    for (let j = 0; j < matrixCutoff; j++) {
+    for (let j = 0; j < Math.min(m.length, matrixCutoff); j++) {
       if (i === j) result[i][j] = 1;
       else if (typeof m[i][j] === 'undefined') result[i][j] = 0;
       else result[i][j] = m[i][j];
     }
   }
+
   return [result, mrows.slice(0, matrixCutoff).map(([i, j]) => [i + 1, j + 1]), log];
 }
 
