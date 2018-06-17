@@ -6,11 +6,20 @@ export class HW4 extends Component {
     super(props);
     this.solve = this.solve.bind(this);
 
-    this.state = { solution: null };
+    this.state = { storedMatrix: this.loadStoredMatrix(), solution: null };
+  }
+
+  loadStoredMatrix() {
+    const matrix = localStorage.getItem('hw-matrix');
+    if (matrix !== null) {
+      return JSON.parse(matrix);
+    }
+    else return [];
   }
 
   solve(matrix) {
-    this.setState({ solution: solvehw4(matrix) });
+    this.setState({ storedMatrix: matrix, solution: solvehw4(matrix) });
+    localStorage.setItem('hw-matrix', JSON.stringify(matrix));
   }
 
   componentDidUpdate() {
@@ -22,11 +31,13 @@ export class HW4 extends Component {
     /* HACK: remove all mathjax previews */
     const soultion = document.getElementById('solution');
     (typeof solution !== 'undefined') && solution.parentNode.removeChild(solution);
-    
+
+    const vertexNum = (this.state.storedMatrix.length > 0) ? this.state.storedMatrix.length : 7;
+
     return (
       <div>
         <h1>4. Планаризация графа</h1>
-        <MatrixInput vertexNum={7} onSubmit={this.solve} />
+        <MatrixInput vertexNum={vertexNum} defaultMatrix={this.state.storedMatrix} onSubmit={this.solve} />
         <div id="solution">{this.state.solution}</div>
       </div>
     );
@@ -45,7 +56,7 @@ class MatrixInput extends Component {
     this.onSubmit = this.onSubmit.bind(this);
     this.loadExampleMatrix = this.loadExampleMatrix.bind(this);
 
-    this.state = { vertexNum: props.vertexNum, matrix: [] };
+    this.state = { vertexNum: props.vertexNum, matrix: props.defaultMatrix };
   }
 
   updateVertexNum(e) {
