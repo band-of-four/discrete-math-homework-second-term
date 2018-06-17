@@ -84,5 +84,9 @@ body {
 .matrix-display {
   & tr > td {
     width: 1em;
+    text-align: center;
+  }
+  & tr > th {
+    padding-right: 16px;
   }
 }

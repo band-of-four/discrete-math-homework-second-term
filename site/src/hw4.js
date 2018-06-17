@@ -2,16 +2,23 @@ import { h } from 'preact';
 
 export default function(matrix) {
   const [ hamiltonianCycle, rfLog ] = robertsFlores(matrix);
-  const reorderedMatrix = reorderVertices(matrix, hamiltonianCycle);
+  const [ reorderedMatrix, reorderedVertices ] = reorderVertices(matrix, hamiltonianCycle);
   const [ intersections, edges, isLog ] = intersectionMatrix(reorderedMatrix);
   const [ psiSet, psiLog ] = independentVertexSets(intersections, edges);
 
   const [ anlMatrix, anlLog ] = analyzePsiSet(psiSet);
 
+  const edgeNames = edges.map(([i, j]) => `$p_{${i}\\ ${j}}$`);
+
   const displayLog = (log) => (<p class="multiline">{log.join('\n')}</p>);
 
   const displayMatrix = (matrix) => (<table class="matrix-display">
     {matrix.map((row) => (<tr>{row.map((cell) => (<td>{cell}</td>))}</tr>))}
+  </table>);
+
+  const displayMatrixWithHeader = (matrix, headings) => (<table class="matrix-display">
+    <thead><th></th>{headings.map((heading) => (<th>{heading}</th>))}</thead>
+    {matrix.map((row, i) => (<tr><th>{headings[i]}</th>{row.map((cell) => (<td>{cell}</td>))}</tr>))}
   </table>);
 
   return (
@@ -20,9 +27,19 @@ export default function(matrix) {
       {displayLog(rfLog)}
       <h2>Матрица смежности с перенумерованными вершинами</h2>
       {displayMatrix(reorderedMatrix)}
+      <table>
+        <tr>
+          <th>до перенумерации</th>
+          {reorderedVertices.map(([before, _]) => (<td>{`$x_{${before + 1}}$`}</td>))}
+        </tr>
+        <tr>
+          <th>после перенумерации</th>
+          {reorderedVertices.map(([_, after]) => (<td>{`$x_{${after + 1}}$`}</td>))}
+        </tr>
+      </table>
       <h2>Построение графа пересечений $G'$</h2>
       {displayLog(isLog)}
-      {displayMatrix(intersections)}
+      {displayMatrixWithHeader(intersections, edgeNames)}
       <h2>Построение семейства $\psi_G$</h2>
       {displayLog(psiLog)}
       <h2>Выделение из $G'$ максимального двудольного подграфа $H'$</h2>
@@ -111,7 +128,7 @@ function reorderVertices(matrix, hamiltonianCycle) {
     }
   }
 
-  return newMatrix;
+  return [newMatrix, Array.from(renamedVertices)];
 }
 
 function intersectionMatrix(matrix) {
