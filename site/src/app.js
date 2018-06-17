@@ -11,8 +11,8 @@ function App(props) {
     <div>
       <nav className="header">
         <Link className="header__link" activeClassName="active" href="/">ДМ</Link>
-        <Link className="header__link" activeClassName="active" href="/4">4</Link>
-        <Link className="header__link" activeClassName="active" href="/6">6</Link>
+        <Link className="header__link" activeClassName="active" href="/4">#4</Link>
+        <Link className="header__link" activeClassName="active" href="/6">#6</Link>
       </nav>
       <main className="content">
         <Router history={createHashHistory()}>
@@ -43,8 +43,9 @@ function Home(props) {
           </a><span> </span> &mdash; оффлайн
         </li>
         <li><a href="/4">Планаризация графа</a></li>
-        <li>Изоморфизм графов &mdash; отсутствует</li>
+        <li>Изоморфизм графов &mdash; проще сделать вручную</li>
         <li><a href="/6">Нахождение эйлерова цикла</a></li>
+        <li>Знаковый граф &mdash; творческое задание, алгоритма нет</li>
       </ol>
     </div>
   );

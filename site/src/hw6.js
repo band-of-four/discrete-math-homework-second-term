@@ -40,7 +40,9 @@ function mutTransformToEulerian(matrix) {
   }
   
   chunks(unevenRowIndexes, 2).forEach(([i, j]) => {
-    log.push(`Соединим вершину ${i + 1} с вершиной ${j + 1}`);
+    if (matrix[i][j] === 0) log.push(`Соединим вершину $x_{${i + 1}}$ с вершиной $x_{${j + 1}}$`);
+    else log.push(`Удалим ребро между вершинами $x_{${i + 1}}$ и $x_{${j + 1}}$`);
+
     matrix[i][j] = (matrix[i][j] === 0) ? 1 : 0;
     matrix[j][i] = (matrix[j][i] === 0) ? 1 : 0;
   });
