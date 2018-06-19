@@ -233,24 +233,24 @@ function recurseJPrimes(matrix, edges, jPrimes, j, disj, psi, result, log) {
       /* Quick test to see if it's reasonable to follow the path of the new J' --
        * make a disjunction of all remaining rows and see if it reaches all 1s,
        * otherwise back off. */
-      const finalZeroes = findIndexes(newJPrimes.reduce((d, k) => or(d, matrix[k]), newDisj), 0);
+      const finalZeroes = findIndexes(jPrimes.reduce((d, k) => or(d, matrix[k]), newDisj), 0);
 
       if (allTrue(newDisj)) {
         result.push(Array.from(psi));
         log.push(`В строке $M_{${disp(psi)}}$ все 1. Построено $\\psi_{${result.length}} = \\{${psiDisp(psi)}\\}$`);
       }
-      else if (finalZeroes.length === 0) {
-        log.push(`В строке $M_{${disp(psi)}}$ находим ` +
-          ((newJPrimes.length > 1)
-          ? `номера нулевых элементов, составляем список $J' = \\{${commaDisp(newJPrimes)}\\}$.`
-          : `$m_{${newJPrimes[0] + 1}} = 0$.`));
+      else if (finalZeroes.length === 0 && newJPrimes.length > 0) {
+        log.push(`В строке $M_{${disp(psi)}}$ находим номера нулевых элементов, составляем список $J' = \\{${commaDisp(newJPrimes)}\\}$.`);
         recurseJPrimes(matrix, edges, newJPrimes, k, newDisj, psi, result, log);
+      }
+      else if (newJPrimes.length === 0) {
+        log.push(`В строке $M_{${disp(psi)}}$ остались нулевые элементы.`);
       }
       else if (k == matrix.length - 1) {
         log.push(`В строке $M_{${disp(psi)}}$ остались незакрытые 0.`);
       }
       else {
-        log.push(`Можно увидеть, что элементами с номерами j > ${j + 1} не удастся закрыть 0 в ` +
+        log.push(`Можно увидеть, что элементами с номерами j > ${k + 1} не удастся закрыть 0 в ` +
           ((finalZeroes.length === 1)
            ? `${finalZeroes[0] + 1} позиции.`
            : `позициях ${finalZeroes.map((k) => k + 1).join(', ')}.`));
